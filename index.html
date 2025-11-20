@@ -615,6 +615,78 @@
                 status: 'pending',
                 options: [
                   {
+                    text: "Understood. Let me provide more detail: we analyzed cost per performance unit, implementation risk, vendor reliability scores, and long-term maintenance costs. This option scored highest across all four dimensions.",
+                    tone: "Detailed/Recovery",
+                    rapportChange: 15,
+                    nextNode: 'NODE_PC_07',
+                    reasoning: "Provides the depth she needs."
+                  }
+                ]
+              },
+              'NODE_PC_32': {
+                npcText: "If you don't have clear analysis, you're not ready for this conversation. Come back when you can articulate why this is the right choice.",
+                status: 'cooling',
+                options: [
+                  {
+                    text: "You're right. Give me 24 hours to prepare a comprehensive analysis.",
+                    tone: "Accepting",
+                    rapportChange: 5,
+                    nextNode: 'NODE_PC_FAIL',
+                    reasoning: "Delays project too much. Practical failure."
+                  }
+                ]
+              },
+              'NODE_PC_34': {
+                npcText: "*stands up* I don't respond well to attitude or implied threats. This conversation is over. Find another sponsor.",
+                status: 'refused',
+                options: [
+                  {
+                    text: "[Conversation ended]",
+                    tone: "Terminal",
+                    rapportChange: 0,
+                    nextNode: 'NODE_PC_FAIL',
+                    reasoning: "TERMINAL. Emotional outburst destroyed relationship."
+                  }
+                ]
+              },
+              'NODE_PC_36': {
+                npcText: "That's too vague. I need specific numbers and timeframes, not generalities.",
+                status: 'cooling',
+                options: [
+                  {
+                    text: "Specific risks: Three-week delay, $78K penalty cost, missed board presentation window, Q2 competitive advantage lost. All quantified in the attached analysis.",
+                    tone: "Recovery/Specific",
+                    rapportChange: 18,
+                    nextNode: 'NODE_PC_35',
+                    reasoning: "Provides the specifics she demanded."
+                  }
+                ]
+              },
+              'NODE_PC_50': {
+                npcText: "More hedging. Either you have confidence in your solutions or you don't. Which is it?",
+                status: 'cooling',
+                options: [
+                  {
+                    text: "I have full confidence. The equipment will deliver 400% capacity increase, the consultant will optimize architecture. Both have contractual performance guarantees.",
+                    tone: "Definitive",
+                    rapportChange: 12,
+                    nextNode: 'NODE_PC_49',
+                    reasoning: "Finally removes all hedging language."
+                  },
+                  {
+                    text: "I'm confident, but I also want to be realistic about potential challenges...",
+                    tone: "Continued Hedging",
+                    rapportChange: -20,
+                    nextNode: 'NODE_PC_FAIL',
+                    reasoning: "TERMINAL. Can't stop hedging even when directly challenged."
+                  }
+                ]
+              },
+              'NODE_PC_33': {
+                npcText: "That's not enough analysis for this size investment. I need more depth before I can approve.",
+                status: 'pending',
+                options: [
+                  {
                     text: "Understood. Let me provide the detailed analysis: [continues with more specifics]",
                     tone: "Responding",
                     rapportChange: 5,
@@ -1260,6 +1332,46 @@
                   }
                 ]
               },
+              'NODE_JP_36': {
+                npcText: "*nods quietly but doesn't seem confident* Okay... I'll try that. *returns to work*",
+                status: 'cooling',
+                options: [
+                  {
+                    text: "Wait James - 'try' isn't enough. Let's actually sit down together and create a concrete plan right now.",
+                    tone: "Supportive/Action",
+                    rapportChange: 15,
+                    nextNode: 'NODE_JP_SUCCESS',
+                    reasoning: "Recognizes he needs more support and provides it."
+                  },
+                  {
+                    text: "Sounds good. Let me know if you need anything.",
+                    tone: "Moving On",
+                    rapportChange: -5,
+                    nextNode: 'NODE_JP_FAIL',
+                    reasoning: "Misses that he's still struggling. May not deliver quality work."
+                  }
+                ]
+              },
+              'NODE_JP_37': {
+                npcText: "*continues working, clearly still anxious and overwhelmed*",
+                status: 'cooling',
+                options: [
+                  {
+                    text: "Actually James, hold on. I can see you're still stressed about this. Let's take 15 minutes right now to break this down together.",
+                    tone: "Caring/Intervention",
+                    rapportChange: 20,
+                    nextNode: 'NODE_JP_SUCCESS',
+                    reasoning: "Catches the problem and intervenes before it's too late."
+                  },
+                  {
+                    text: "[Leave him to work alone]",
+                    tone: "Abandoning",
+                    rapportChange: -15,
+                    nextNode: 'NODE_JP_FAIL',
+                    reasoning: "He needed support and didn't get it. Likely poor outcome."
+                  }
+                ]
+              },
               'NODE_JP_38': {
                 npcText: "*takes a breath, nods* Okay. Thank you. That... that would really help.",
                 status: 'warming',
@@ -1273,6 +1385,26 @@
                   }
                 ]
               },
+              'NODE_JP_39': {
+                npcText: "*still looks nervous* I... I think I'm okay. I'll figure it out.",
+                status: 'cooling',
+                options: [
+                  {
+                    text: "James, I don't think you are okay, and that's alright. Let me help you properly. We'll work through this together right now.",
+                    tone: "Caring/Insistent",
+                    rapportChange: 18,
+                    nextNode: 'NODE_JP_SUCCESS',
+                    reasoning: "Recognizes the distress and provides immediate support."
+                  },
+                  {
+                    text: "Okay, if you're sure. My door's open if you need anything.",
+                    tone: "Backing Off",
+                    rapportChange: -10,
+                    nextNode: 'NODE_JP_FAIL',
+                    reasoning: "Leaves him struggling alone when he clearly needs help."
+                  }
+                ]
+              },
               'NODE_JP_40': {
                 npcText: "*shuts down completely, stares at desk*",
                 status: 'refused',
@@ -1283,6 +1415,19 @@
                     rapportChange: 0,
                     nextNode: 'NODE_JP_FAIL',
                     reasoning: "TERMINAL. Completely paralyzed."
+                  }
+                ]
+              },
+              'NODE_JP_41': {
+                npcText: "*watches you leave, sits alone looking overwhelmed*",
+                status: 'cooling',
+                options: [
+                  {
+                    text: "[James will struggle alone - likely poor outcome]",
+                    tone: "Abandoned",
+                    rapportChange: -15,
+                    nextNode: 'NODE_JP_FAIL',
+                    reasoning: "Left him in distress. He'll likely freeze up and fail to deliver."
                   }
                 ]
               },
