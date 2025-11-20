@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tone Persuasion Game</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+        
+        const TonePersuasionGame = () => {
+          const [gameState, setGameState] = useState('intro');
+          const [currentNPC, setCurrentNPC] = useState(null);
+          const [conversations, setConversations] = useState({
+            client: [],
+            intern: [],
+            colleague: [],
+            admin: []
+          });
+          const [npcStatus, setNpcStatus] = useState({
+            client: 'pending',
+            intern: 'pending',
+            colleague: 'pending',
+            admin: 'pending'
+          });
+          const [npcRapport, setNpcRapport] = useState({
+            client: 0,
+            intern: 0,
+            colleague: 0,
+            admin: 0
+          });
+          const [currentMessage, setCurrentMessage] = useState('');
+          const [isLoading, setIsLoading] = useState(false);
+          const [feedback, setFeedback] = useState(null);
+
+          const npcs = {
+            client: {
+              name: "Ms. Patricia Chen",
+              role: "Senior Client",
+              task: "Approve the budget increase for additional resources",
+              avatar: "👔",
+              mbti: "ENTJ",
+              projectGoal: "Wants the project to demonstrate clear ROI and enhance her company's reputation",
+              selfishGoal: "Looking to use this project's success as leverage for a board position",
+              flaw: "Becomes dismissive and cuts ties completely if she perceives incompetence or weakness",
+              communicationStyle: "Expects confidence, directness, and data-driven arguments. Hates hedging language ('maybe', 'hopefully'). Respects boldness but not arrogance."
+            },
+            intern: {
+              name: "James Park",
+              role: "New Intern",
+              task: "Prepare the data analysis report by Friday",
+              avatar: "😊",
+              mbti: "ISFJ",
+              projectGoal: "Wants to do excellent work that contributes meaningfully to the team",
+              selfishGoal: "Desperately wants to prove himself worthy of a full-time offer after his internship",
+              flaw: "Becomes paralyzed by harsh criticism or pressure, may freeze up completely and fail to deliver",
+              communicationStyle: "Needs clear guidance, reassurance, and warmth. Responds well to collaborative language ('we', 'let's work on this together'). Shuts down with aggressive or cold tone."
+            },
+            colleague: {
+              name: "Dr. Sarah Martinez",
+              role: "Senior Researcher",
+              task: "Share her team's research findings for the presentation",
+              avatar: "🔬",
+              mbti: "INTJ",
+              projectGoal: "Wants the project to respect academic rigor and properly credit her team's contributions",
+              selfishGoal: "Protecting her research from being oversimplified or misrepresented in the presentation",
+              flaw: "Becomes territorial and actively obstructive if she feels her work is being disrespected or stolen",
+              communicationStyle: "Values diplomatic, collaborative language. Sensitive to being ordered around or having her expertise questioned. Responds to appeals about shared goals and mutual respect."
+            },
+            admin: {
+              name: "Mr. Robert Kim",
+              role: "Department Administrator",
+              task: "Fast-track the equipment approval process",
+              avatar: "📋",
+              mbti: "ISTJ",
+              projectGoal: "Wants all processes to follow proper procedures and maintain institutional integrity",
+              selfishGoal: "Avoiding any appearance of favoritism or rule-breaking that could reflect poorly on his department",
+              flaw: "Becomes rigid and refuses all requests if proper protocols aren't followed or if pressured inappropriately",
+              communicationStyle: "Requires formal, precise language with clear justification. Responds to policy-based arguments and proper channels. Ignores emotional appeals or attempts to bypass procedure."
+            }
+          };
+
+          const scenario = {
+            title: "Project Phoenix - Cross-Departmental Coordination",
+            description: "You're managing Project Phoenix, a critical initiative launching next week. You need cooperation from four key people, each with different working styles and communication preferences. Your goal: get all four to commit to their tasks through effective written communication.",
+            objective: "Get all 4 people to agree to complete their tasks"
+          };
+
+          const startGame = () => {
+            setGameState('playing');
+          };
+
+          const selectNPC = (npcId) => {
+            setCurrentNPC(npcId);
+            setCurrentMessage('');
+          };
+
+          const backToHub = () => {
+            setCurrentNPC(null);
+            setCurrentMessage('');
+          };
+
+          const sendMessage = async () => {
+            if (!currentMessage.trim() || isLoading) return;
+
+            const userMessage = currentMessage.trim();
+            setCurrentMessage('');
+            setIsLoading(true);
+
+            const newConversations = {
+              ...conversations,
+              [currentNPC]: [...conversations[currentNPC], { sender: 'user', text: userMessage }]
+            };
+            setConversations(newConversations);
+
+            try {
+              const npcInfo = npcs[currentNPC];
+              const conversationHistory = newConversations[currentNPC];
+              const currentStatus = npcStatus[currentNPC];
+              const currentRapport = npcRapport[currentNPC];
+
+              const systemPrompt = `You are roleplaying as ${npcInfo.name}, ${npcInfo.role}.
+
+PERSONALITY PROFILE:
+- Myers-Briggs Type: ${npcInfo.mbti}
+- Communication Style: ${npcInfo.communicationStyle}
+- Project Goal: ${npcInfo.projectGoal}
+- Selfish Goal: ${npcInfo.selfishGoal}
+- Critical Flaw: ${npcInfo.flaw}
+
+CURRENT SITUATION:
+- You are being asked to: ${npcInfo.task}
+- Current Status: ${currentStatus === 'pending' ? 'You have not yet decided' : currentStatus === 'agreed' ? 'You have already agreed to do this' : 'You have refused to do this'}
+- Rapport Level: ${currentRapport}/100 (${currentRapport > 50 ? 'positive' : currentRapport > 0 ? 'neutral-positive' : currentRapport > -50 ? 'neutral-negative' : 'very negative'})
+
+CONVERSATION SO FAR:
+${conversationHistory.slice(0, -1).map(msg => `${msg.sender === 'user' ? 'Project Manager' : 'You'}: ${msg.text}`).join('\n')}
+
+THEIR LATEST MESSAGE: "${userMessage}"
+
+INSTRUCTIONS:
+1. Respond authentically as this character would based on their MBTI type, communication preferences, goals, and current rapport level
+2. React to the TONE, APPROACH, and CONTENT of their message:
+   - Does it match your communication style?
+   - Does it address your goals or concerns?
+   - Is it persuasive for YOUR personality type?
+   - Does it trigger your flaw?
+
+3. Determine your response type based on rapport:
+   - If rapport is very high (>60) and they've handled you well: Consider AGREEING
+   - If rapport is moderately positive (20-60) and message is decent: Stay NEUTRAL but warmer
+   - If rapport is low (<-30) or they've badly mishandled you: Consider REFUSING or being hostile
+   - If they've completely burned the bridge (<-60): REFUSE permanently
+
+4. Format your response with a STATUS MARKER at the very start:
+   - "AGREE:|" if you're committing to the task
+   - "REFUSE:|" if you're declining permanently
+   - "RAPPORT:+15|" or "RAPPORT:-20|" to indicate rapport change (from -30 to +30, be realistic)
+   - Then your actual dialogue response
+
+EXAMPLE FORMATS:
+"RAPPORT:+10|That's a thoughtful approach. I appreciate you considering my team's workload."
+"RAPPORT:-15|I don't appreciate being told what to do. This isn't how collaboration works."
+"AGREE:|Alright, you've convinced me. I'll prioritize getting this approved by Friday."
+"REFUSE:|I'm done with this conversation. Find someone else to push around."
+
+Respond in 2-4 sentences as this character would. Be realistic and human.`;
+
+              const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  "Authorization": "Bearer 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",
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  model: "x-ai/grok-beta",
+                  messages: [
+                    { 
+                      role: "user", 
+                      content: systemPrompt 
+                    }
+                  ],
+                  temperature: 0.8,
+                  max_tokens: 300
+                })
+              });
+
+              const data = await response.json();
+              const npcResponse = data.choices[0].message.content;
+
+              let displayResponse = npcResponse;
+              let newStatus = currentStatus;
+              let rapportChange = 0;
+
+              if (npcResponse.includes("AGREE:|")) {
+                newStatus = 'agreed';
+                displayResponse = npcResponse.split("AGREE:|")[1].trim();
+                rapportChange = 20;
+              } 
+              else if (npcResponse.includes("REFUSE:|")) {
+                newStatus = 'refused';
+                displayResponse = npcResponse.split("REFUSE:|")[1].trim();
+              }
+              else if (npcResponse.includes("RAPPORT:")) {
+                const rapportMatch = npcResponse.match(/RAPPORT:([-+]\d+)\|/);
+                if (rapportMatch) {
+                  rapportChange = parseInt(rapportMatch[1]);
+                  displayResponse = npcResponse.split(/RAPPORT:[-+]\d+\|/)[1].trim();
+                }
+              }
+
+              const newRapport = Math.max(-100, Math.min(100, currentRapport + rapportChange));
+
+              setConversations({
+                ...newConversations,
+                [currentNPC]: [...newConversations[currentNPC], { sender: 'npc', text: displayResponse }]
+              });
+
+              if (newStatus !== currentStatus) {
+                setNpcStatus({
+                  ...npcStatus,
+                  [currentNPC]: newStatus
+                });
+              }
+
+              setNpcRapport({
+                ...npcRapport,
+                [currentNPC]: newRapport
+              });
+
+            } catch (error) {
+              console.error('Error:', error);
+              setConversations({
+                ...newConversations,
+                [currentNPC]: [...newConversations[currentNPC], { 
+                  sender: 'npc', 
+                  text: "I apologize, but I'm having trouble processing that. Could you try again?" 
+                }]
+              });
+            }
+
+            setIsLoading(false);
+          };
+
+          const endGame = async () => {
+            setIsLoading(true);
+            setGameState('feedback');
+
+            try {
+              const allConversations = Object.entries(conversations)
+                .filter(([_, msgs]) => msgs.length > 0)
+                .map(([npcId, msgs]) => {
+                  const npc = npcs[npcId];
+                  return `
+=== ${npc.name} (${npc.role}) ===
+MBTI: ${npc.mbti}
+Communication Style: ${npc.communicationStyle}
+Project Goal: ${npc.projectGoal}
+Selfish Goal: ${npc.selfishGoal}
+Flaw: ${npc.flaw}
+Task: ${npc.task}
+Final Status: ${npcStatus[npcId]}
+Final Rapport: ${npcRapport[npcId]}/100
+
+Conversation:
+${msgs.map(msg => `${msg.sender === 'user' ? 'Student' : npc.name}: ${msg.text}`).join('\n')}
+`;
+                }).join('\n\n');
+
+              const analysisPrompt = `You are analyzing a student's performance in a communication/tone training exercise. The student had to convince 4 different NPCs to complete tasks using appropriate tone, persuasion, and understanding of personality types.
+
+${allConversations}
+
+TASK: Provide comprehensive feedback on the student's communication approach with each person. For EACH NPC they contacted, analyze:
+
+1. **Tone Identification**: What tone did the student primarily use? (formal, casual, persuasive, demanding, warm, collaborative, etc.)
+2. **Personality Match**: Did they adapt their approach to this person's MBTI type and communication style? Give specific examples.
+3. **Strategic Approach**: Did they address the NPC's project goals and selfish motivations? Did they trigger the flaw?
+4. **Effectiveness**: Was their approach effective? Why or why not? Reference the rapport score and final outcome.
+5. **Specific Examples**: Quote 1-2 phrases that were particularly effective or ineffective
+6. **Improvement Suggestions**: What should they have done differently based on this person's personality profile?
+
+Then provide:
+- **Overall Assessment**: Success rate, whether they understood the importance of adapting communication style
+- **Key Lessons**: 3 main takeaways about tone, persuasion, and personality-based communication
+
+Format as JSON:
+{
+  "npc_feedback": {
+    "npc_id": {
+      "npc_name": "Name",
+      "tone_used": "description",
+      "personality_match": "how well they matched MBTI/style",
+      "strategic_approach": "did they address goals/avoid flaw",
+      "effectiveness": "effective/partially effective/ineffective",
+      "analysis": "detailed analysis",
+      "examples": ["quote 1", "quote 2"],
+      "suggestions": "specific improvements"
+    }
+  },
+  "overall_assessment": {
+    "success_rate": "X/4",
+    "achieved_goal": true/false,
+    "summary": "overall performance summary"
+  },
+  "key_lessons": ["lesson 1", "lesson 2", "lesson 3"]
+}
+
+Only analyze NPCs the student contacted. Be specific and educational.`;
+
+              const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  "Authorization": "Bearer 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",
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  model: "x-ai/grok-beta",
+                  messages: [
+                    { role: "user", content: analysisPrompt }
+                  ],
+                  temperature: 0.7,
+                  max_tokens: 3000
+                })
+              });
+
+              const data = await response.json();
+              let responseText = data.choices[0].message.content;
+              
+              responseText = responseText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+              
+              const feedbackData = JSON.parse(responseText);
+              setFeedback(feedbackData);
+
+            } catch (error) {
+              console.error('Error generating feedback:', error);
+              setFeedback({
+                error: true,
+                message: "Unable to generate feedback. Please try again."
+              });
+            }
+
+            setIsLoading(false);
+          };
+
+          const restartGame = () => {
+            setGameState('intro');
+            setCurrentNPC(null);
+            setConversations({
+              client: [],
+              intern: [],
+              colleague: [],
+              admin: []
+            });
+            setNpcStatus({
+              client: 'pending',
+              intern: 'pending',
+              colleague: 'pending',
+              admin: 'pending'
+            });
+            setNpcRapport({
+              client: 0,
+              intern: 0,
+              colleague: 0,
+              admin: 0
+            });
+            setCurrentMessage('');
+            setFeedback(null);
+          };
+
+          // Intro Screen
+          if (gameState === 'intro') {
+            return (
+              <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+                <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-xl p-8">
+                  <div className="text-center mb-8">
+                    <h1 className="text-4xl font-bold text-indigo-900 mb-2">{scenario.title}</h1>
+                    <p className="text-gray-600">A Tone & Persuasion Communication Game</p>
+                  </div>
+
+                  <div className="bg-indigo-50 border-l-4 border-indigo-500 p-6 mb-6">
+                    <h2 className="text-xl font-semibold text-indigo-900 mb-3">Scenario</h2>
+                    <p className="text-gray-700 mb-4">{scenario.description}</p>
+                    <div className="bg-white p-4 rounded">
+                      <p className="font-semibold text-indigo-800">🎯 Your Goal:</p>
+                      <p className="text-gray-700">{scenario.objective}</p>
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">The Team:</h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      {Object.entries(npcs).map(([id, npc]) => (
+                        <div key={id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                          <div className="flex items-center gap-3 mb-3">
+                            <span className="text-3xl">{npc.avatar}</span>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-gray-800">{npc.name}</p>
+                                <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">{npc.mbti}</span>
+                              </div>
+                              <p className="text-sm text-gray-600">{npc.role}</p>
+                            </div>
+                          </div>
+                          <div className="space-y-1 text-sm">
+                            <p className="text-gray-700">
+                              <span className="font-medium">Task:</span> {npc.task}
+                            </p>
+                            <p className="text-gray-600 italic">
+                              {npc.communicationStyle.split('.')[0]}.
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                    <p className="text-sm text-gray-700">
+                      <strong>Note:</strong> You'll receive detailed feedback on your tone and communication effectiveness at the end of the game. Focus on adapting your message style to each person's personality.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={startGame}
+                    className="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                  >
+                    Start Game
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          // Playing - Hub View
+          if (gameState === 'playing' && !currentNPC) {
+            const agreedCount = Object.values(npcStatus).filter(s => s === 'agreed').length;
+            const hasConversations = Object.values(conversations).some(conv => conv.length > 0);
+
+            return (
+              <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+                <div className="max-w-4xl mx-auto">
+                  <div className="bg-white rounded-lg shadow-xl p-6 mb-6">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h2 className="text-2xl font-bold text-indigo-900">Project Phoenix Control Center</h2>
+                        <p className="text-gray-600">Select a team member to contact</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-3xl font-bold text-indigo-600">{agreedCount}/4</div>
+                        <p className="text-sm text-gray-600">Committed</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    {Object.entries(npcs).map(([id, npc]) => {
+                      const status = npcStatus[id];
+                      const messageCount = conversations[id].length;
+                      
+                      return (
+                        <button
+                          key={id}
+                          onClick={() => selectNPC(id)}
+                          className={`bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-all text-left ${
+                            status === 'agreed' ? 'border-2 border-green-500' : 
+                            status === 'refused' ? 'border-2 border-red-500' : 
+                            'border-2 border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <span className="text-4xl">{npc.avatar}</span>
+                              <div>
+                                <p className="font-bold text-gray-800">{npc.name}</p>
+                                <p className="text-sm text-gray-600">{npc.role}</p>
+                              </div>
+                            </div>
+                            {status === 'agreed' && <span className="text-2xl">✅</span>}
+                            {status === 'refused' && <span className="text-2xl">❌</span>}
+                          </div>
+                          
+                          <p className="text-sm text-gray-700 mb-3">{npc.task}</p>
+                          
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <span>💬</span>
+                            <span>{messageCount} message{messageCount !== 1 ? 's' : ''}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {hasConversations && (
+                    <button
+                      onClick={endGame}
+                      disabled={isLoading}
+                      className="w-full bg-green-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                      {isLoading ? 'Generating Feedback...' : 'End Game & See Feedback'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          }
+
+          // Playing - Conversation View
+          if (gameState === 'playing' && currentNPC) {
+            const npc = npcs[currentNPC];
+            const conv = conversations[currentNPC];
+            const status = npcStatus[currentNPC];
+
+            return (
+              <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+                <div className="max-w-3xl mx-auto">
+                  <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+                    <div className="bg-indigo-600 text-white p-6">
+                      <button
+                        onClick={backToHub}
+                        className="text-sm mb-4 hover:underline"
+                      >
+                        ← Back to Team
+                      </button>
+                      <div className="flex items-center gap-4">
+                        <span className="text-5xl">{npc.avatar}</span>
+                        <div className="flex-1">
+                          <h2 className="text-2xl font-bold">{npc.name}</h2>
+                          <p className="text-indigo-100">{npc.role}</p>
+                          <p className="text-sm text-indigo-200 mt-1">Task: {npc.task}</p>
+                          
+                          <div className="mt-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-indigo-200">Relationship:</span>
+                              <div className="flex-1 bg-indigo-800 rounded-full h-2 max-w-[200px]">
+                                <div 
+                                  className={`h-2 rounded-full transition-all duration-500 ${
+                                    npcRapport[currentNPC] > 50 ? 'bg-green-400' :
+                                    npcRapport[currentNPC] > 0 ? 'bg-yellow-400' :
+                                    npcRapport[currentNPC] > -50 ? 'bg-orange-400' :
+                                    'bg-red-400'
+                                  }`}
+                                  style={{ width: `${Math.max(0, (npcRapport[currentNPC] + 100) / 2)}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-xs text-indigo-200">
+                                {npcRapport[currentNPC] > 50 ? '😊' :
+                                 npcRapport[currentNPC] > 0 ? '🙂' :
+                                 npcRapport[currentNPC] > -50 ? '😐' :
+                                 '😠'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {status === 'agreed' && (
+                        <div className="mt-3 bg-green-500 text-white px-3 py-1 rounded inline-block text-sm">
+                          ✓ Committed to task
+                        </div>
+                      )}
+                      {status === 'refused' && (
+                        <div className="mt-3 bg-red-500 text-white px-3 py-1 rounded inline-block text-sm">
+                          ✗ Declined task
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-6 h-96 overflow-y-auto bg-gray-50">
+                      {conv.length === 0 ? (
+                        <div className="text-center text-gray-400 mt-20">
+                          <span className="text-5xl block mb-4">💬</span>
+                          <p>Start the conversation by sending a message...</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {conv.map((msg, idx) => (
+                            <div
+                              key={idx}
+                              className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                            >
+                              <div
+                                className={`max-w-[80%] p-4 rounded-lg ${
+                                  msg.sender === 'user'
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-white text-gray-800 shadow'
+                                }`}
+                              >
+                                <p className="text-sm font-semibold mb-1">
+                                  {msg.sender === 'user' ? 'You' : npc.name}
+                                </p>
+                                <p>{msg.text}</p>
+                              </div>
+                            </div>
+                          ))}
+                          {isLoading && (
+                            <div className="flex justify-start">
+                              <div className="bg-white text-gray-800 shadow p-4 rounded-lg">
+                                <p className="text-sm font-semibold mb-1">{npc.name}</p>
+                                <p className="text-gray-500 italic">typing...</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-6 bg-white border-t border-gray-200">
+                      <div className="flex gap-3">
+                        <textarea
+                          value={currentMessage}
+                          onChange={(e) => setCurrentMessage(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              sendMessage();
+                            }
+                          }}
+                          placeholder="Type your message here..."
+                          className="flex-1 border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                          rows="3"
+                          disabled={isLoading}
+                        />
+                        <button
+                          onClick={sendMessage}
+                          disabled={!currentMessage.trim() || isLoading}
+                          className="bg-indigo-600 text-white px-6 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          📤
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Press Enter to send, Shift+Enter for new line</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Feedback Screen
+          if (gameState === 'feedback') {
+            if (isLoading) {
+              return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+                  <div className="bg-white p-8 rounded-lg shadow-xl text-center">
+                    <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Analyzing your communication style...</p>
+                  </div>
+                </div>
+              );
+            }
+
+            if (feedback?.error) {
+              return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+                  <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-xl p-8">
+                    <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
+                    <p className="text-gray-700 mb-6">{feedback.message}</p>
+                    <button
+                      onClick={restartGame}
+                      className="bg-indigo-600 text-white py-2 px-6 rounded-lg hover:bg-indigo-700"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            const agreedCount = Object.values(npcStatus).filter(s => s === 'agreed').length;
+            const goalAchieved = agreedCount === 4;
+
+            return (
+              <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+                <div className="max-w-4xl mx-auto">
+                  <div className={`bg-white rounded-lg shadow-xl p-8 mb-6 border-4 ${
+                    goalAchieved ? 'border-green-500' : 'border-yellow-500'
+                  }`}>
+                    <div className="text-center">
+                      <span className="text-6xl block mb-4">{goalAchieved ? '🏆' : '📊'}</span>
+                      <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                        {goalAchieved ? '🎉 Mission Accomplished!' : '📊 Game Complete'}
+                      </h1>
+                      <p className="text-xl text-gray-600 mb-4">
+                        {feedback.overall_assessment?.success_rate || `${agreedCount}/4`} team members committed
+                      </p>
+                      <p className="text-gray-700">
+                        {feedback.overall_assessment?.summary || 'Review your feedback below.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6 mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Communication Analysis</h2>
+                    
+                    {feedback.npc_feedback && Object.entries(feedback.npc_feedback).map(([npcId, npcFeedback]) => (
+                      <div key={npcId} className="bg-white rounded-lg shadow-lg p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                          <span className="text-3xl">{npcs[npcId]?.avatar || '👤'}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-xl font-bold text-gray-800">{npcFeedback.npc_name}</h3>
+                              <span className={`text-sm px-3 py-1 rounded-full ${
+                                npcFeedback.effectiveness === 'effective' ? 'bg-green-100 text-green-800' :
+                                npcFeedback.effectiveness === 'partially effective' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {npcFeedback.effectiveness}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">
+                                {npcs[npcId]?.mbti}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                Final Rapport: {npcRapport[npcId]}/100
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div>
+                            <p className="font-semibold text-gray-700">Tone Used:</p>
+                            <p className="text-gray-600">{npcFeedback.tone_used}</p>
+                          </div>
+
+                          {npcFeedback.personality_match && (
+                            <div>
+                              <p className="font-semibold text-gray-700">Personality Match:</p>
+                              <p className="text-gray-600">{npcFeedback.personality_match}</p>
+                            </div>
+                          )}
+
+                          {npcFeedback.strategic_approach && (
+                            <div>
+                              <p className="font-semibold text-gray-700">Strategic Approach:</p>
+                              <p className="text-gray-600">{npcFeedback.strategic_approach}</p>
+                            </div>
+                          )}
+
+                          <div>
+                            <p className="font-semibold text-gray-700">Analysis:</p>
+                            <p className="text-gray-600">{npcFeedback.analysis}</p>
+                          </div>
+
+                          {npcFeedback.examples && npcFeedback.examples.length > 0 && (
+                            <div>
+                              <p className="font-semibold text-gray-700">Key Phrases:</p>
+                              <ul className="list-disc list-inside text-gray-600 ml-2">
+                                {npcFeedback.examples.map((example, idx) => (
+                                  <li key={idx} className="italic">"{example}"</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          <div>
+                            <p className="font-semibold text-gray-700">How to Improve:</p>
+                            <p className="text-gray-600">{npcFeedback.suggestions}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {feedback.key_lessons && feedback.key_lessons.length > 0 && (
+                    <div className="bg-indigo-50 rounded-lg shadow-lg p-6 mb-6">
+                      <h2 className="text-xl font-bold text-indigo-900 mb-4">📚 Key Lessons</h2>
+                      <ul className="space-y-2">
+                        {feedback.key_lessons.map((lesson, idx) => (
+                          <li key={idx} className="flex gap-3">
+                            <span className="text-indigo-600 font-bold">{idx + 1}.</span>
+                            <span className="text-gray-700">{lesson}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={restartGame}
+                    className="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                  >
+                    Play Again
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          return null;
+        };
+
+        ReactDOM.render(<TonePersuasionGame />, document.getElementById('root'));
+    </script>
+</body>
+</html>
