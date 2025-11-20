@@ -2551,9 +2551,6 @@
                                 <p className="text-sm font-semibold mb-1">
                                   {msg.sender === 'user' ? 'You' : npc.name}
                                 </p>
-                                {msg.tone && (
-                                  <p className="text-xs opacity-75 mb-2 italic">[{msg.tone}]</p>
-                                )}
                                 <p>{msg.text}</p>
                               </div>
                             </div>
@@ -2572,7 +2569,6 @@
                               onClick={() => selectOption(option)}
                               className="w-full text-left p-4 bg-gray-50 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300 rounded-lg transition-colors"
                             >
-                              <p className="text-xs font-semibold text-indigo-600 mb-1">[{option.tone}]</p>
                               <p className="text-sm text-gray-800">{option.text}</p>
                             </button>
                           ))}
